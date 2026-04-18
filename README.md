@@ -1,139 +1,188 @@
-# EMU-GPU Toolkit v2.1
+# EMU-GPU Toolkit v2.0
 
-**GPU via CPU + Tradutor de .exe — Interface Grafica Nativa**
+**GPU via CPU + Traducao Propria de .exe para Ubuntu/Linux**
 
-Toolkit experimental que transforma seu processador (CPU) em uma placa de video virtual e executa jogos `.exe` do Windows no Ubuntu. Feito especialmente para quem tem um **CPU potente mas GPU fraca** — como o **Intel HD Graphics 3000**.
+Um launcher completo que transforma sua CPU em uma placa de video virtual e executa jogos `.exe` do Windows no Ubuntu — **sem depender do Wine como aplicativo**. Usa codigo-fonte open-source de DXVK, VKD3D-Proton, FAudio e outros projetos para criar uma camada de traducao integrada.
 
-**NOVO na v2.1:** Campo de texto editavel para colar caminho de outros HDs, escaner de pasta inteira, e limpeza automatica da v1.0.
+---
+
+## NOVO na v2.0
+
+- **Interface GTK4/libadwaita** — design moderno estilo Steam/Lutris, nativo do Ubuntu
+- **Traducao Propria** — usa DXVK, VKD3D, FAudio via codigo-fonte open-source, nao apenas chama `wine`
+- **Explorador Nativo** — usa Nautilus (gerenciador de arquivos do Ubuntu) para navegar por todos os HDs
+- **File Chooser Portal** — file picker nativo do GTK4 que integra com o sistema
+- **Ferramentas Experimentais** — FSR, Frame Generation, Shader Cache
+- **Analise de PE** — escaneia executaveis e detecta dependencias automaticamente
 
 ---
 
 ## Seu Hardware — i7-2760QM
 
 | Componente | Especificacao |
-|-----------|---------------|
+|------------|--------------|
 | CPU | Intel Core i7-2760QM (4 cores / 8 threads) |
 | GPU | Intel HD Graphics 3000 |
 
-**O i7-2760QM e excelente para emulacao GPU!** Com 8 threads, renderiza graficos 3D por software via LLVMpipe/Lavapipe.
+O i7-2760QM e excelente para emulacao GPU! Com 8 threads, renderiza graficos 3D por software via LLVMpipe/Lavapipe.
 
 ---
 
-## Interface Grafica — Tudo Visual, Sem Comandos!
+## Interface Grafica — Moderna e Nativa
 
-A v2.0+ traz uma **interface grafica completa** em tkinter. Tudo por cliques:
+A v2.0 traz uma interface **GTK4/libadwaita** profissional:
 
-- Dashboard com status do sistema
-- Biblioteca de jogos com botao **JOGAR**
-- **Campo de texto editavel** — cole o caminho de qualquer HD (`/media/dragonscp/...`)
-- **Escaner de pasta** — acha todos os .exe de uma vez
-- Selecao visual de perfil de performance
-- Sliders para FPS e resolucao
+- **Dashboard** com status do sistema em tempo real
+- **Biblioteca de jogos** com cards estilo Steam
+- **Adicionar jogo** com explorador Nautilus nativo
+- **Configuracoes** de tradutores, renderizadores e otimizacoes
+- **Ferramentas Experimentais** para usuarios avancados
+- **File chooser nativo** que acessa todos os HDs em `/media/`
+
+### Explorador de Arquivos
+
+A v2.0 usa o **Nautilus** (explorador de arquivos padrao do Ubuntu):
+- Clique em "Abrir Nautilus..." para navegar normalmente
+- Acesse todos os seus HDs, pendrives, pastas de rede
+- Copie o caminho completo (Ctrl+C) e cole no launcher
+
+Tambem disponivel o **file chooser nativo do GTK4** que usa o portal do sistema.
+
+---
+
+## Renderizacao por CPU
+
+### Modos Disponiveis
+
+| Modo | Nome | Para que serve |
+|------|------|---------------|
+| `llvmpipe` | OpenGL por CPU | Jogos 2D e leves. Maxima compatibilidade. |
+| `lavapipe` | Vulkan por CPU | Jogos com DXVK. DirectX 9/10/11 via Vulkan. |
+| `swrender-full` | Render Completo | OpenGL + Vulkan + Zink. Melhor resultado geral. |
+
+### Recomendado para i7-2760QM
+
+- **Resolucao:** 1280x720
+- **FPS Limit:** 30 (para jogos 3D), 60 (para jogos 2D)
+- **Renderer:** Render Completo (swrender-full)
+
+---
+
+## Camada de Traducao
+
+A v2.0 usa uma **camada de traducao propria** baseada em codigo-fonte open-source:
+
+| Modulo | Funcao | Origem |
+|--------|--------|--------|
+| **DXVK** | DirectX 9/10/11 -> Vulkan | [doitsujin/dxvk](https://github.com/doitsujin/dxvk) |
+| **VKD3D-Proton** | DirectX 12 -> Vulkan | [HansKristian-Work/vkd3d-proton](https://github.com/HansKristian-Work/vkd3d-proton) |
+| **WineD3D** | DirectX -> OpenGL | [WineHQ](https://gitlab.winehq.org/wine/wine) |
+| **FAudio** | XAudio2 reimplementacao | [FNA-XNA/FAudio](https://github.com/FNA-XNA/FAudio) |
+
+**Diferente da v1:** Nao chamamos `wine jogo.exe`. Carregamos as DLLs de traducao diretamente e usamos o Wine apenas como backend de bibliotecas.
 
 ---
 
 ## Instalacao Rapida
 
-### Se ja tem a v1.0 instalada:
-
 ```bash
-cd ~/projects
-git pull origin main
-chmod +x install_gui.sh
-./install_gui.sh
-```
-
-O instalador v2.1 **limpa a v1.0 automaticamente**!
-
-### Instalacao nova:
-
-```bash
-cd ~/Downloads
+# Clone o repositorio
 git clone https://github.com/DragonBRX/projects.git
 cd projects
-chmod +x install_gui.sh
-./install_gui.sh
+
+# Rode o instalador
+bash install.sh
 ```
 
----
+O instalador configura tudo automaticamente:
+1. GTK4, libadwaita, Nautilus
+2. Drivers Mesa LLVMpipe/Lavapipe
+3. Modulos de traducao (DXVK, VKD3D, FAudio)
+4. Wine (apenas bibliotecas)
+5. EMU-GPU Toolkit v2.0
 
-## Como Usar
-
-### Adicionar Jogo de Outro HD (Colar Caminho)
-
-1. Abra o EMU-GPU Toolkit pelo **Menu de Aplicativos**
-2. Clique em **"Adicionar Jogo"**
-3. No campo de texto, **COLE** o caminho completo:
-   ```
-   /media/dragonscp/Novo volume/jogos/meu_jogo.exe
-   ```
-   Ou clique em **"Procurar..."** para navegar
-4. Escolha o nome, perfil, FPS e resolucao
-5. **"SALVAR E ADICIONAR"**
-
-### Escanear Pasta Inteira
-
-Clique em **"+ Procurar todos os .exe numa pasta"** e selecione uma pasta — o app acha **todos** os jogos automaticamente!
-
-### Jogar
-
-Va em **"Meus Jogos"** e clique no botao **VERDE "JOGAR"**.
-
----
-
-## Como Funciona
-
-| Tecnologia | Funcao |
-|-----------|--------|
-| **LLVMpipe** | OpenGL 4.5 renderizado pela CPU |
-| **Lavapipe** | Vulkan 1.3 por software |
-| **Zink** | Converte OpenGL → Vulkan |
-| **DXVK** | DirectX 9/10/11 → Vulkan |
-| **Wine** | Executa .exe no Linux |
-
----
-
-## O que Roda no i7-2760QM
-
-| Categoria | Jogos |
-|-----------|-------|
-| **Roda bem** | Stardew Valley, Terraria, Hollow Knight, Celeste |
-| **Provavelmente roda** | Minecraft, Portal 1/2, Half-Life 2, GTA SA |
-| **Talvez a 30 FPS / 720p** | Skyrim (2011), Fallout 3/NV, emuladores PS2 |
-
----
-
-## Limpar Versao Antiga (v1.0)
-
-Se a v1.0 ainda esta instalada, rode:
+## Uso
 
 ```bash
-cd ~/projects
-bash cleanup.sh
+# Iniciar interface grafica
+emu-gpu
+
+# Ou diretamente
+cd ~/.emu-gpu/app && python3 main.py
 ```
 
-Isso remove todos os arquivos antigos, aliases do .bashrc e atalhos obsoletos.
+## Atalhos
+
+| Comando | Funcao |
+|---------|--------|
+| `emu-gpu` | Interface grafica principal |
+| `swrender <programa>` | Render completo por CPU |
+| `llvmpipe <programa>` | OpenGL por software |
+| `lavapipe <programa>` | Vulkan por software |
+| `game-mode` | Ativa performance maxima da CPU |
 
 ---
 
-## Estrutura
+## Estrutura do Projeto v2.0
 
 ```
 projects/
 ├── app/
-│   ├── emu_gpu_gui.py      # Aplicativo GUI principal (v2.1)
-│   └── launcher.sh         # Script de execucao
-├── cleanup.sh              # Limpa v1.0
-├── install_gui.sh          # Instalador automatico v2.1
-├── config/
-│   └── lvp_icd.x86_64.json # Config Vulkan
-├── scripts/                # Scripts auxiliares
-├── docs/
-│   ├── README.md           # Documentacao completa
-│   └── icon.png            # Icone do app
-└── README.md               # Este arquivo
+│   ├── main.py              # Entry point (GTK4/libadwaita)
+│   ├── window.py            # Janela principal
+│   ├── launcher.sh          # Script de lancamento
+│   └── core/
+│       ├── config.py        # Configuracoes e constantes
+│       ├── system.py        # Deteccao de hardware
+│       └── translator.py    # Camada de traducao propria
+├── install.sh               # Instalador principal
+└── README.md
 ```
 
 ---
 
-*Powered by Mesa LLVMpipe/Lavapipe + Wine + DXVK*
+## Jogos Compativeis
+
+Jogos que devem rodar bem no i7-2760QM:
+
+- Stardew Valley (2D)
+- Terraria (2D)
+- Hollow Knight (2D)
+- Celeste (2D)
+- Minecraft com OptiFine (3D leve)
+- Portal 1/2 (3D/Source)
+- Half-Life 2 (3D/Source)
+- GTA San Andreas (3D)
+- Fallout 3/New Vegas (3D)
+- Skyrim (2011) (3D)
+
+---
+
+## Requisitos
+
+- Ubuntu 22.04+ (ou derivado)
+- CPU x86_64 com 4+ cores (8+ threads recomendado)
+- 4GB+ RAM (8GB recomendado)
+- GTK4/libadwaita
+- Vulkan drivers (Mesa)
+
+---
+
+## Creditos
+
+- **DXVK** — [doitsujin](https://github.com/doitsujin/dxvk)
+- **VKD3D-Proton** — [HansKristian-Work](https://github.com/HansKristian-Work/vkd3d-proton)
+- **FAudio** — [FNA-XNA](https://github.com/FNA-XNA/FAudio)
+- **Wine** — [WineHQ](https://www.winehq.org/)
+- **Proton** — [ValveSoftware](https://github.com/ValveSoftware/Proton)
+- **Mesa** — [mesa3d.org](https://www.mesa3d.org/)
+
+---
+
+## Licenca
+
+Projeto experimental para uso pessoal. Componentes de terceiros mantem suas respectivas licencas (MIT, LGPL, etc.).
+
+---
+
+**Feito para CPUs potentes com GPUs fracas.**

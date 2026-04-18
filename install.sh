@@ -1,8 +1,8 @@
 #!/bin/bash
 # =============================================================================
-# EMU-GPU TOOLKIT - Instalador Principal
-# Uma ferramenta experimental para emular GPU via CPU e traduzir .exe no Ubuntu
-# Para CPUs potentes com GPUs fracas (como Intel HD 3000)
+# EMU-GPU TOOLKIT v2.0 - Instalador
+# GPU via CPU + Traducao Propria de .exe para Ubuntu/Linux
+# Nao usa Wine como aplicativo - usa codigo-fonte open-source
 # =============================================================================
 
 set -e
@@ -21,582 +21,519 @@ INSTALL_DIR="$HOME/.emu-gpu"
 BIN_DIR="$HOME/.local/bin"
 DESKTOP_DIR="$HOME/.local/share/applications"
 
+# =============================================================================
+# BANNER
+# =============================================================================
 echo -e "${BOLD}${CYAN}"
-echo "    ╔══════════════════════════════════════════════════════════════╗"
-echo "    ║           EMU-GPU TOOLKIT v1.0 - Instalador                 ║"
-echo "    ║     GPU via CPU + Tradutor de .exe para Ubuntu               ║"
-echo "    ╚══════════════════════════════════════════════════════════════╝"
+echo "    ╔══════════════════════════════════════════════════════════════════╗"
+echo "    ║                EMU-GPU TOOLKIT v2.0 - Instalador               ║"
+echo "    ║          GPU via CPU + Traducao Propria de .exe                ║"
+echo "    ║                                                                  ║"
+echo "    ║  NOVO v2.0:                                                     ║"
+echo "    ║  - Interface GTK4/libadwaita (estilo Steam/Lutris)              ║"
+echo "    ║  - Traducao propria (DXVK, VKD3D, FAudio - codigo aberto)      ║"
+echo "    ║  - Nao usa Wine como app, apenas bibliotecas de traducao       ║"
+echo "    ║  - Explorador de arquivos nativo (Nautilus)                    ║"
+echo "    ║  - Ferramentas experimentais (FSR, Frame Generation)            ║"
+echo "    ╚══════════════════════════════════════════════════════════════════╝"
 echo -e "${NC}"
 echo ""
 
-# Detectar hardware
+# =============================================================================
+# DETECTAR HARDWARE
+# =============================================================================
 echo -e "${BLUE}[INFO]${NC} Detectando hardware..."
 CPU_MODEL=$(grep "model name" /proc/cpuinfo | head -1 | cut -d':' -f2 | xargs)
 CPU_CORES=$(nproc)
 CPU_THREADS=$(grep -c "^processor" /proc/cpuinfo)
 RAM_GB=$(free -g | awk '/^Mem:/{print $2}')
-GPU_INFO=$(lspci 2>/dev/null | grep -i "vga\|3d\|display" | head -1 | cut -d':' -f3 | xargs || echo "GPU não detectada via lspci")
+GPU_INFO=$(lspci 2>/dev/null | grep -i "vga\|3d\|display" | head -1 | cut -d':' -f3 | xargs || echo "GPU nao detectada")
 
-echo -e "  ${GREEN}CPU:${NC}      $CPU_MODEL"
-echo -e "  ${GREEN}Núcleos:${NC}  $CPU_CORES cores / $CPU_THREADS threads"
-echo -e "  ${GREEN}RAM:${NC}      ${RAM_GB}GB"
-echo -e "  ${GREEN}GPU:${NC}      $GPU_INFO"
+echo -e "  ${GREEN}CPU:${NC}       $CPU_MODEL"
+echo -e "  ${GREEN}Nucleos:${NC}   $CPU_CORES cores / $CPU_THREADS threads"
+echo -e "  ${GREEN}RAM:${NC}       ${RAM_GB}GB"
+echo -e "  ${GREEN}GPU:${NC}       $GPU_INFO"
 echo ""
 
-# Verificar sistema
+# =============================================================================
+# VERIFICAR SISTEMA
+# =============================================================================
 echo -e "${BLUE}[INFO]${NC} Verificando sistema..."
+
 if [ ! -f /etc/os-release ]; then
-    echo -e "${RED}[ERRO]${NC} Não foi possível detectar a distribuição"
+    echo -e "${RED}[ERRO]${NC} Nao foi possivel detectar a distribuicao"
     exit 1
 fi
 
 source /etc/os-release
 if [[ "$ID" != "ubuntu" && "$ID_LIKE" != *"ubuntu"* && "$ID" != "debian" && "$ID_LIKE" != *"debian"* ]]; then
-    echo -e "${YELLOW}[AVISO]${NC} Sistema não é Ubuntu/Debian. Continuando mesmo assim..."
+    echo -e "${YELLOW}[AVISO]${NC} Sistema nao e Ubuntu/Debian. Continuando mesmo assim..."
 fi
-echo -e "  ${GREEN}OS:${NC}       $PRETTY_NAME"
+echo -e "  ${GREEN}OS:${NC}        $PRETTY_NAME"
 echo ""
 
-# Verificar arquitetura
 ARCH=$(uname -m)
 if [ "$ARCH" != "x86_64" ]; then
-    echo -e "${RED}[ERRO]${NC} Arquitetura $ARCH não suportada. Precisa ser x86_64."
+    echo -e "${RED}[ERRO]${NC} Arquitetura $ARCH nao suportada. Precisa ser x86_64."
     exit 1
 fi
 
-# Verificar permissões
-echo -e "${BLUE}[INFO]${NC} Verificando permissões..."
+# Verificar permissoes
 if [ "$EUID" -eq 0 ]; then
-    echo -e "${YELLOW}[AVISO]${NC} Não rode como root! O script pedirá sudo quando necessário."
+    echo -e "${YELLOW}[AVISO]${NC} Nao rode como root! O script pedira sudo quando necessario."
     exit 1
 fi
 
-# Verificar sudo
-if ! sudo -n true 2>/dev/null; then
-    echo -e "${YELLOW}[AVISO]${NC} Você precisará digitar sua senha para instalar pacotes."
-fi
+# =============================================================================
+# FUNCOES DE INSTALACAO
+# =============================================================================
 
-# ============================================================================
-# FUNÇÕES DE INSTALAÇÃO
-# ============================================================================
-
-install_base_packages() {
-    echo -e "\n${BOLD}${CYAN}▶ ETAPA 1/6: Instalando pacotes base...${NC}"
+install_gtk4_deps() {
+    echo -e "\n${BOLD}${CYAN}▶ ETAPA 1/7: Instalando dependencias GTK4/libadwaita...${NC}"
     
     sudo apt-get update
     
-    # Pacotes essenciais para compilação e funcionamento
     local PACKAGES=(
-        # Compilação
-        build-essential git cmake meson ninja-build
+        # GTK4 e libadwaita
+        libgtk-4-1
+        libadwaita-1-0
+        gir1.2-gtk-4.0
+        gir1.2-adw-1
+        python3-gi
+        python3-gi-cairo
+        
+        # Explorador de arquivos nativo
+        nautilus
+        zenity
+        
         # Vulkan e drivers Mesa
-        mesa-vulkan-drivers vulkan-tools libvulkan1
+        mesa-vulkan-drivers
+        vulkan-tools
+        libvulkan1
+        vulkan-validationlayers
+        
         # OpenGL por software
-        libgl1-mesa-dri libglx-mesa0 mesa-utils
-        # Wine e dependências
-        wine64 wine64-preloader winetricks
-        # Utilitários
-        htop inxi cpufrequtils cpulimit
-        # Python e pip
-        python3 python3-pip python3-venv
-        # Bibliotecas 32-bit (para Wine e jogos antigos)
-        libc6:i386 libncurses5:i386 libstdc++6:i386
-        # Outras bibliotecas importantes
-        libsdl2-2.0-0 libsdl2-image-2.0-0 libsdl2-mixer-2.0-0
-        libopenal1 libvorbisfile3 libpng16-16 libjpeg-turbo8
-        # Compressão
-        p7zip-full unzip
-        # X11 e display virtual (para headless)
-        xvfb x11-xserver-utils
+        libgl1-mesa-dri
+        libglx-mesa0
+        mesa-utils
+        
+        # Utilitarios
+        htop
+        inxi
+        cpufrequtils
+        
+        # Python
+        python3
+        python3-pip
+        
+        # Bibliotecas
+        libsdl2-2.0-0
+        libopenal1
+        libvorbisfile3
+        libpng16-16
+        libjpeg-turbo8
+        
+        # Audio
+        libfaudio0
+        libasound2-plugins
+        
+        # Compressao
+        p7zip-full
+        unzip
+        
+        # Compilacao
+        build-essential
+        cmake
+        
+        # Wine (apenas para bibliotecas, nao como app principal)
+        wine64
+        libwine
+        
+        # Outros
+        xdg-utils
+        desktop-file-utils
     )
     
     echo -e "${BLUE}[INFO]${NC} Instalando ${#PACKAGES[@]} pacotes..."
     sudo apt-get install -y "${PACKAGES[@]}" 2>&1 | tail -5
     
-    echo -e "${GREEN}[OK]${NC} Pacotes base instalados."
+    echo -e "${GREEN}[OK]${NC} Dependencias GTK4/libadwaita instaladas."
 }
 
 install_mesa_llvmpipe() {
-    echo -e "\n${BOLD}${CYAN}▶ ETAPA 2/6: Configurando Mesa LLVMpipe (GPU via CPU)...${NC}"
+    echo -e "\n${BOLD}${CYAN}▶ ETAPA 2/7: Configurando Mesa LLVMpipe (GPU via CPU)...${NC}"
     
-    # LLVMpipe é o driver OpenGL por software da Mesa
-    # Ele usa a CPU para renderizar gráficos 3D via LLVM
-    
-    # Verificar se LLVMpipe está disponível
+    # Verificar se LLVMpipe esta disponivel
     if glxinfo 2>/dev/null | grep -q "llvmpipe"; then
-        echo -e "${GREEN}[OK]${NC} LLVMpipe já detectado!"
+        echo -e "${GREEN}[OK]${NC} LLVMpipe detectado!"
     else
-        echo -e "${YELLOW}[AVISO]${NC} LLVMpipe não detectado ainda, mas será configurado."
+        echo -e "${YELLOW}[AVISO]${NC} LLVMpipe nao detectado ainda, mas sera configurado."
     fi
     
     # Lavapipe (Vulkan por software)
     if ! vulkaninfo --summary 2>/dev/null | grep -q "LAVAPIPE"; then
-        echo -e "${YELLOW}[AVISO]${NC} Lavapipe não detectado. Tentando instalar..."
+        echo -e "${YELLOW}[AVISO]${NC} Lavapipe nao detectado. Tentando instalar..."
         sudo apt-get install -y mesa-vulkan-drivers 2>/dev/null || true
     fi
     
-    # Criar wrappers otimizados
+    # Wrappers otimizados
     mkdir -p "$INSTALL_DIR/wrappers"
     
-    # Wrapper para OpenGL por software (LLVMpipe)
+    # Wrapper LLVMpipe
     cat > "$INSTALL_DIR/wrappers/llvmpipe-glx" << 'EOF'
 #!/bin/bash
-# Wrapper LLVMpipe - Força renderização OpenGL por CPU
 export LIBGL_ALWAYS_SOFTWARE=1
 export GALLIUM_DRIVER=llvmpipe
-export LP_NUM_THREADS=0  # 0 = usa todos os threads disponíveis
+export LP_NUM_THREADS=0
 export MESA_GL_VERSION_OVERRIDE=4.5
 export MESA_GLSL_VERSION_OVERRIDE=450
+export MESA_NO_ERROR=1
+export __GL_THREADED_OPTIMIZATIONS=1
 exec "$@"
 EOF
     chmod +x "$INSTALL_DIR/wrappers/llvmpipe-glx"
     
-    # Wrapper para Vulkan por software (Lavapipe)
+    # Wrapper Lavapipe
     cat > "$INSTALL_DIR/wrappers/lavapipe-vk" << 'EOF'
 #!/bin/bash
-# Wrapper Lavapipe - Força renderização Vulkan por CPU
 export VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/lvp_icd.x86_64.json
-# Se não existir, tenta o genérico
 [ ! -f "$VK_ICD_FILENAMES" ] && export VK_ICD_FILENAMES=$(find /usr -name "lvp_icd*.json" 2>/dev/null | head -1)
-# Desabilita outras GPUs
 export DRI_PRIME=0
 export __GLX_VENDOR_LIBRARY_NAME=mesa
-# Variáveis de otimização
 export LVP_PIPE_OPTIONS="fp16=0"
 exec "$@"
 EOF
     chmod +x "$INSTALL_DIR/wrappers/lavapipe-vk"
     
-    # Wrapper combinado (Vulkan + OpenGL por software)
+    # Wrapper Completo
     cat > "$INSTALL_DIR/wrappers/swrender-full" << 'EOF'
 #!/bin/bash
-# Wrapper Completo - Toda renderização via CPU
-# OpenGL via LLVMpipe
 export LIBGL_ALWAYS_SOFTWARE=1
 export GALLIUM_DRIVER=llvmpipe
 export LP_NUM_THREADS=0
 export MESA_GL_VERSION_OVERRIDE=4.5
 export MESA_GLSL_VERSION_OVERRIDE=450
-# Vulkan via Lavapipe
+export MESA_LOADER_DRIVER_OVERRIDE=zink
 export VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/lvp_icd.x86_64.json
 [ ! -f "$VK_ICD_FILENAMES" ] && export VK_ICD_FILENAMES=$(find /usr -name "lvp_icd*.json" 2>/dev/null | head -1)
-# Desabilita GPU física
 export DRI_PRIME=0
 export __GLX_VENDOR_LIBRARY_NAME=mesa
-# Zink (OpenGL sobre Vulkan) também por software
-export MESA_LOADER_DRIVER_OVERRIDE=zink
-# Otimizações de memória
 export MESA_NO_ERROR=1
-# Threading
 export __GL_THREADED_OPTIMIZATIONS=1
 exec "$@"
 EOF
     chmod +x "$INSTALL_DIR/wrappers/swrender-full"
     
-    echo -e "${GREEN}[OK]${NC} Wrappers de renderização por software criados."
+    echo -e "${GREEN}[OK]${NC} Wrappers de renderizacao configurados."
 }
 
-install_wine_dxvk() {
-    echo -e "\n${BOLD}${CYAN}▶ ETAPA 3/6: Configurando Wine + DXVK/VK3D...${NC}"
+install_translators() {
+    echo -e "\n${BOLD}${CYAN}▶ ETAPA 3/7: Instalando modulos de traducao...${NC}"
     
-    # Verificar se Wine está instalado
-    if ! command -v wine &>/dev/null; then
-        echo -e "${YELLOW}[AVISO]${NC} Wine não encontrado. Tentando instalar..."
-        
-        # Habilitar arquitetura 32-bit
-        sudo dpkg --add-architecture i386 2>/dev/null || true
-        sudo apt-get update
-        
-        # Instalar Wine da repo oficial se possível
-        sudo apt-get install -y wine64 wine32 || {
-            echo -e "${YELLOW}[AVISO]${NC} Falha ao instalar via apt. Tentando método alternativo..."
-            # Download manual do Wine
-            WINE_VERSION="8.0.2"
-            WINE_DEB="wine-${WINE_VERSION}-ubuntu-amd64.deb"
-            cd /tmp
-            wget -q "https://github.com/Kron4ek/Wine-Builds/releases/download/${WINE_VERSION}/${WINE_DEB}" -O "$WINE_DEB" 2>/dev/null || {
-                echo -e "${RED}[ERRO]${NC} Não foi possível baixar o Wine."
-                return 1
-            }
-            sudo dpkg -i "$WINE_DEB" || sudo apt-get install -f -y
-        }
-    fi
+    mkdir -p "$INSTALL_DIR/translator"
     
-    WINE_VERSION=$(wine --version 2>/dev/null || echo "desconhecido")
-    echo -e "  ${GREEN}Wine:${NC} $WINE_VERSION"
-    
-    # Inicializar prefixo Wine se não existir
-    if [ ! -d "$HOME/.wine" ]; then
-        echo -e "${BLUE}[INFO]${NC} Inicializando prefixo Wine (pode demorar)..."
-        WINEARCH=win64 winecfg /v=win10 2>&1 | tail -3
-    fi
-    
-    # Instalar Winetricks se não existir
-    if ! command -v winetricks &>/dev/null; then
-        echo -e "${BLUE}[INFO]${NC} Instalando winetricks..."
-        sudo apt-get install -y winetricks 2>/dev/null || {
-            wget -q https://raw.githubusercontent.com/Winetricks/winetricks/master/src/winetricks -O /tmp/winetricks
-            chmod +x /tmp/winetricks
-            sudo mv /tmp/winetricks /usr/local/bin/
-        }
-    fi
-    
-    # Baixar DXVK (DirectX 9/10/11 → Vulkan) - versão que funciona com Lavapipe
-    echo -e "${BLUE}[INFO]${NC} Baixando DXVK (DirectX → Vulkan)..."
+    # DXVK
+    echo -e "${BLUE}[INFO]${NC} Instalando DXVK..."
     DXVK_VERSION="2.3.1"
-    DXVK_DIR="$INSTALL_DIR/dxvk"
-    
+    DXVK_DIR="$INSTALL_DIR/translator/dxvk"
     mkdir -p "$DXVK_DIR"
+    
     cd "$DXVK_DIR"
-    
-    # DXVK mais recente que funciona bem com Lavapipe
-    DXVK_URL="https://github.com/doitsujin/dxvk/releases/download/v${DXVK_VERSION}/dxvk-${DXVK_VERSION}.tar.gz"
-    
     if [ ! -f "dxvk-${DXVK_VERSION}.tar.gz" ]; then
-        wget -q --show-progress "$DXVK_URL" -O "dxvk-${DXVK_VERSION}.tar.gz" 2>&1 || {
-            echo -e "${YELLOW}[AVISO]${NC} Falha ao baixar DXVK ${DXVK_VERSION}. Tentando versão alternativa..."
-            # DXVK 1.10.3 é mais compatível com GPUs limitadas
+        wget -q --show-progress "https://github.com/doitsujin/dxvk/releases/download/v${DXVK_VERSION}/dxvk-${DXVK_VERSION}.tar.gz" 2>&1 || {
+            echo -e "${YELLOW}[AVISO]${NC} Falha no download do DXVK. Tentando versao alternativa..."
             DXVK_VERSION="1.10.3"
-            wget -q --show-progress "https://github.com/doitsujin/dxvk/releases/download/v${DXVK_VERSION}/dxvk-${DXVK_VERSION}.tar.gz" -O "dxvk-${DXVK_VERSION}.tar.gz"
+            wget -q --show-progress "https://github.com/doitsujin/dxvk/releases/download/v${DXVK_VERSION}/dxvk-${DXVK_VERSION}.tar.gz" 2>&1
         }
     fi
     
-    tar -xzf "dxvk-${DXVK_VERSION}.tar.gz" 2>/dev/null || true
-    echo -e "  ${GREEN}DXVK:${NC} v${DXVK_VERSION} disponível em $DXVK_DIR"
+    if [ -f "dxvk-${DXVK_VERSION}.tar.gz" ]; then
+        tar -xzf "dxvk-${DXVK_VERSION}.tar.gz" 2>/dev/null || true
+        mkdir -p dlls/x64 dlls/x32
+        if [ -d "dxvk-${DXVK_VERSION}/x64" ]; then
+            cp dxvk-${DXVK_VERSION}/x64/*.dll dlls/x64/ 2>/dev/null || true
+            cp dxvk-${DXVK_VERSION}/x32/*.dll dlls/x32/ 2>/dev/null || true
+        fi
+        echo -e "${GREEN}[OK]${NC} DXVK v${DXVK_VERSION} instalado."
+    else
+        echo -e "${YELLOW}[AVISO]${NC} DXVK nao pode ser baixado. Sera instalado depois."
+    fi
     
-    # Criar script de instalação do DXVK no prefixo Wine
-    cat > "$INSTALL_DIR/scripts/install-dxvk.sh" << EOF
-#!/bin/bash
-# Instala DXVK no prefixo Wine atual
-DXVK_DIR="$INSTALL_DIR/dxvk/dxvk-${DXVK_VERSION}"
-if [ -d "\$DXVK_DIR" ]; then
-    WINEPREFIX=\${WINEPREFIX:-\$HOME/.wine}
-    cp "\$DXVK_DIR"/x64/*.dll "\$WINEPREFIX/drive_c/windows/system32/" 2>/dev/null || true
-    cp "\$DXVK_DIR"/x32/*.dll "\$WINEPREFIX/drive_c/windows/syswow64/" 2>/dev/null || true
-    # Configurar overrides no registro
-    wine reg add "HKCU\\Software\\Wine\\DllOverrides" /v d3d9 /d native /f >/dev/null 2>&1
-    wine reg add "HKCU\\Software\\Wine\\DllOverrides" /v d3d10 /d native /f >/dev/null 2>&1
-    wine reg add "HKCU\\Software\\Wine\\DllOverrides" /v d3d10_1 /d native /f >/dev/null 2>&1
-    wine reg add "HKCU\\Software\\Wine\\DllOverrides" /v d3d10core /d native /f >/dev/null 2>&1
-    wine reg add "HKCU\\Software\\Wine\\DllOverrides" /v d3d11 /d native /f >/dev/null 2>&1
-    wine reg add "HKCU\\Software\\Wine\\DllOverrides" /v dxgi /d native /f >/dev/null 2>&1
-    echo "DXVK instalado no prefixo \$WINEPREFIX"
-else
-    echo "DXVK não encontrado em \$DXVK_DIR"
-    exit 1
-fi
-EOF
-    chmod +x "$INSTALL_DIR/scripts/install-dxvk.sh"
-    
-    # VKD3D-Proton (DirectX 12 → Vulkan)
-    echo -e "${BLUE}[INFO]${NC} Baixando VKD3D-Proton (DirectX 12 → Vulkan)..."
+    # VKD3D-Proton
+    echo -e "${BLUE}[INFO]${NC} Instalando VKD3D-Proton..."
     VKD3D_VERSION="2.11.1"
-    VKD3D_DIR="$INSTALL_DIR/vkd3d"
-    
+    VKD3D_DIR="$INSTALL_DIR/translator/vkd3d"
     mkdir -p "$VKD3D_DIR"
-    cd "$VKD3D_DIR"
     
+    cd "$VKD3D_DIR"
     if [ ! -f "vkd3d-proton-${VKD3D_VERSION}.tar.zst" ]; then
-        wget -q --show-progress "https://github.com/HansKristian-Work/vkd3d-proton/releases/download/v${VKD3D_VERSION}/vkd3d-proton-${VKD3D_VERSION}.tar.zst" -O "vkd3d-proton-${VKD3D_VERSION}.tar.zst" 2>/dev/null || {
-            echo -e "${YELLOW}[AVISO]${NC} Falha ao baixar VKD3D. Pulando..."
+        wget -q --show-progress "https://github.com/HansKristian-Work/vkd3d-proton/releases/download/v${VKD3D_VERSION}/vkd3d-proton-${VKD3D_VERSION}.tar.zst" 2>/dev/null || {
+            echo -e "${YELLOW}[AVISO]${NC} Falha no download do VKD3D."
         }
     fi
     
     if [ -f "vkd3d-proton-${VKD3D_VERSION}.tar.zst" ]; then
         tar -xf "vkd3d-proton-${VKD3D_VERSION}.tar.zst" 2>/dev/null || true
-        echo -e "  ${GREEN}VKD3D:${NC} v${VKD3D_VERSION} disponível"
+        echo -e "${GREEN}[OK]${NC} VKD3D-Proton v${VKD3D_VERSION} instalado."
+    else
+        echo -e "${YELLOW}[AVISO]${NC} VKD3D nao pode ser baixado. Sera instalado depois."
     fi
     
-    echo -e "${GREEN}[OK]${NC} Wine + DXVK/VKD3D configurados."
+    # FAudio
+    echo -e "${BLUE}[INFO]${NC} Verificando FAudio..."
+    if dpkg -l | grep -q libfaudio0; then
+        echo -e "${GREEN}[OK]${NC} FAudio ja instalado."
+    else
+        echo -e "${YELLOW}[AVISO]${NC} FAudio nao encontrado. Instalando..."
+        sudo apt-get install -y libfaudio0 2>/dev/null || true
+    fi
+    
+    echo -e "${GREEN}[OK]${NC} Modulos de traducao configurados."
 }
 
-install_python_tool() {
-    echo -e "\n${BOLD}${CYAN}▶ ETAPA 4/6: Instalando ferramenta Python emu-gpu...${NC}"
+install_wine_libs() {
+    echo -e "\n${BOLD}${CYAN}▶ ETAPA 4/7: Configurando Wine (apenas bibliotecas)...${NC}"
     
-    # Criar ambiente virtual
-    PYTHON_VENV="$INSTALL_DIR/venv"
-    python3 -m venv "$PYTHON_VENV" 2>/dev/null || {
-        echo -e "${YELLOW}[AVISO]${NC} python3-venv não disponível. Tentando sem venv..."
-        PYTHON_VENV=""
-    }
-    
-    # Instalar dependências
-    if [ -n "$PYTHON_VENV" ]; then
-        source "$PYTHON_VENV/bin/activate"
+    if ! command -v wine &>/dev/null; then
+        echo -e "${YELLOW}[AVISO]${NC} Wine nao encontrado. Instalando bibliotecas..."
+        sudo dpkg --add-architecture i386 2>/dev/null || true
+        sudo apt-get update
+        sudo apt-get install -y wine64 libwine 2>&1 | tail -3
     fi
     
-    pip install --upgrade pip -q
-    pip install colorama psutil pyyaml -q
+    WINE_VERSION=$(wine --version 2>/dev/null || echo "desconhecido")
+    echo -e "  ${GREEN}Wine:${NC} $WINE_VERSION (apenas para bibliotecas DLL)"
     
-    # Copiar arquivos do toolkit
-    cp -r "$SCRIPT_DIR/src" "$INSTALL_DIR/"
-    cp -r "$SCRIPT_DIR/config" "$INSTALL_DIR/"
+    # Inicializar prefixo Wine se nao existir
+    if [ ! -d "$HOME/.wine" ]; then
+        echo -e "${BLUE}[INFO]${NC} Inicializando prefixo Wine..."
+        WINEARCH=win64 winecfg /v=win10 2>&1 | tail -3
+    fi
+    
+    echo -e "${GREEN}[OK]${NC} Wine configurado como backend de bibliotecas."
+}
+
+install_app() {
+    echo -e "\n${BOLD}${CYAN}▶ ETAPA 5/7: Instalando EMU-GPU Toolkit v2.0...${NC}"
+    
+    # Criar diretorios
+    mkdir -p "$INSTALL_DIR"/{app,app/core,app/pages,app/widgets,config,cache,logs,games}
+    
+    # Copiar arquivos do app
+    cp -r "$SCRIPT_DIR/app"/* "$INSTALL_DIR/app/"
     
     # Criar launcher
     mkdir -p "$BIN_DIR"
     
-    cat > "$BIN_DIR/emu-gpu" << EOF
+    cat > "$BIN_DIR/emu-gpu" << 'EOF'
 #!/bin/bash
-# Launcher para a ferramenta emu-gpu
-INSTALL_DIR="$INSTALL_DIR"
-PYTHON_VENV="$PYTHON_VENV"
+# EMU-GPU Toolkit v2.0 Launcher
+INSTALL_DIR="$HOME/.emu-gpu"
+APP_DIR="$INSTALL_DIR/app"
 
-if [ -n "\$PYTHON_VENV" ] && [ -f "\$PYTHON_VENV/bin/activate" ]; then
-    source "\$PYTHON_VENV/bin/activate"
-fi
-
-export PYTHONPATH="\$INSTALL_DIR:\$PYTHONPATH"
-python3 "\$INSTALL_DIR/src/emu_gpu.py" "\$@"
+cd "$APP_DIR"
+python3 main.py "$@"
 EOF
     chmod +x "$BIN_DIR/emu-gpu"
     
-    # Criar .desktop entry
+    # Criar .desktop
     mkdir -p "$DESKTOP_DIR"
     cat > "$DESKTOP_DIR/emu-gpu.desktop" << EOF
 [Desktop Entry]
 Name=EMU-GPU Toolkit
-Comment=GPU via CPU e tradutor de .exe
+Name[pt_BR]=EMU-GPU Toolkit
+Comment=GPU via CPU + Traducao de .exe
+Comment[pt_BR]=GPU via CPU + Traducao de jogos .exe
 Exec=$BIN_DIR/emu-gpu
 Icon=$INSTALL_DIR/icon.png
 Type=Application
-Terminal=true
-Categories=System;Utility;
+Terminal=false
+Categories=Game;Utility;
+Keywords=game;emulator;gpu;wine;dxvk;
 EOF
     
-    echo -e "${GREEN}[OK]${NC} Ferramenta emu-gpu instalada em $BIN_DIR/emu-gpu"
+    # Copiar icone (ou criar um placeholder)
+    if [ -f "$SCRIPT_DIR/config/icon.png" ]; then
+        cp "$SCRIPT_DIR/config/icon.png" "$INSTALL_DIR/icon.png"
+    else
+        touch "$INSTALL_DIR/icon.png"
+    fi
+    
+    # Configuracao inicial
+    cat > "$INSTALL_DIR/config/settings.json" << 'EOF'
+{
+  "version": "2.0",
+  "default_renderer": "swrender-full",
+  "fps_limit": 30,
+  "resolucao": "1280x720",
+  "cpu_affinity": true,
+  "game_mode": false,
+  "janela": true,
+  "ultimo_diretorio": "/home",
+  "translators_ativos": ["dxvk", "faudio"],
+  "experimental_tools": {
+    "fsr": false,
+    "frame_gen": false,
+    "shader_cache": true
+  },
+  "theme": "dark",
+  "notifications": true
+}
+EOF
+    
+    echo -e "${GREEN}[OK]${NC} EMU-GPU Toolkit v2.0 instalado em $INSTALL_DIR"
 }
 
 configure_optimizations() {
-    echo -e "\n${BOLD}${CYAN}▶ ETAPA 5/6: Configurando otimizações de CPU...${NC}"
+    echo -e "\n${BOLD}${CYAN}▶ ETAPA 6/7: Configurando otimizacoes...${NC}"
     
-    # Script de otimização de CPU para jogos
+    # Script de game mode
     cat > "$INSTALL_DIR/scripts/cpu-governor-game.sh" << 'EOF'
 #!/bin/bash
-# Coloca CPU em modo performance para jogos
 if [ "$EUID" -ne 0 ]; then
-    echo "Rode com sudo para alterar governor"
+    echo "Rode com sudo"
     exit 1
 fi
-
-# Performance mode
 for cpu in /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor; do
     echo performance > "$cpu" 2>/dev/null || true
 done
-
-# Desabilitar turboboost / speedstep se possível (mantém clock máximo)
-if [ -f /sys/devices/system/cpu/intel_pstate/no_turbo ]; then
-    echo 0 > /sys/devices/system/cpu/intel_pstate/no_turbo 2>/dev/null || true
-fi
-
-echo "CPU configurada para modo performance"
+echo "CPU: modo performance"
 EOF
     chmod +x "$INSTALL_DIR/scripts/cpu-governor-game.sh"
     
-    # Script para reverter
+    # Script powersave
     cat > "$INSTALL_DIR/scripts/cpu-governor-powersave.sh" << 'EOF'
 #!/bin/bash
-# Volta CPU para modo powersave
 if [ "$EUID" -ne 0 ]; then
-    echo "Rode com sudo para alterar governor"
+    echo "Rode com sudo"
     exit 1
 fi
-
 for cpu in /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor; do
     echo powersave > "$cpu" 2>/dev/null || true
 done
-
-echo "CPU configurada para modo powersave"
+echo "CPU: modo powersave"
 EOF
     chmod +x "$INSTALL_DIR/scripts/cpu-governor-powersave.sh"
     
-    # Script de afinidade de CPU (isola cores para jogos)
-    cat > "$INSTALL_DIR/scripts/cpu-affinity-launcher.sh" << 'EOF'
-#!/bin/bash
-# Launcher com afinidade de CPU otimizada
-# Isola cores físicos para o jogo, deixa threads lógicos para sistema
-
-# Detectar layout de CPU
-TOTAL_CORES=$(nproc)
-if [ "$TOTAL_CORES" -eq 8 ]; then
-    # 4 cores / 8 threads típico: usar cores 0,1,2,3 (físicos)
-    AFFINITY_MASK="0,1,2,3"
-    ISO_MASK="4,5,6,7"
-elif [ "$TOTAL_CORES" -eq 4 ]; then
-    # 2 cores / 4 threads: usar cores 0,1
-    AFFINITY_MASK="0,1"
-    ISO_MASK="2,3"
-else
-    # Genérico: usar metade dos cores
-    AFFINITY_MASK="0-$((TOTAL_CORES/2-1))"
-    ISO_MASK="$((TOTAL_CORES/2))-$((TOTAL_CORES-1))"
-fi
-
-echo "Máscara de afinidade: $AFFINITY_MASK (sistema: $ISO_MASK)"
-taskset -c "$AFFINITY_MASK" "$@"
-EOF
-    chmod +x "$INSTALL_DIR/scripts/cpu-affinity-launcher.sh"
-    
-    # Script de limitação de FPS (reduz carga na CPU)
-    cat > "$INSTALL_DIR/scripts/fps-limiter.sh" << 'EOF'
-#!/bin/bash
-# Limita FPS para reduzir carga de CPU em renderização por software
-FPS_LIMIT=${1:-30}
-shift
-
-echo "Limitando a $FPS_LIMIT FPS..."
-# Usa libstrangle se disponível, senão fallback para outras formas
-if command -v strangle &>/dev/null; then
-    strangle "$FPS_LIMIT" "$@"
-else
-    # Fallback: exporta variável que alguns jogos respeitam
-    export __GL_SYNC_TO_VBLANK=1
-    export vblank_mode=1
-    # Tentar usar mangohud como limitador
-    if command -v mangohud &>/dev/null; then
-        MANGOHUD_CONFIG=fps_limit=$FPS_LIMIT mangohud "$@"
-    else
-        "$@"
-    fi
-fi
-EOF
-    chmod +x "$INSTALL_DIR/scripts/fps-limiter.sh"
-    
-    echo -e "${GREEN}[OK]${NC} Otimizações de CPU configuradas."
+    echo -e "${GREEN}[OK]${NC} Otimizacoes configuradas."
 }
 
 setup_environment() {
-    echo -e "\n${BOLD}${CYAN}▶ ETAPA 6/6: Configurando ambiente do usuário...${NC}"
+    echo -e "\n${BOLD}${CYAN}▶ ETAPA 7/7: Configurando ambiente...${NC}"
     
-    # Adicionar ao .bashrc se não existir
+    # Adicionar ao .bashrc
     if ! grep -q "EMU_GPU_TOOLKIT" "$HOME/.bashrc" 2>/dev/null; then
         cat >> "$HOME/.bashrc" << EOF
 
-# === EMU-GPU TOOLKIT ===
+# === EMU-GPU TOOLKIT v2.0 ===
 export EMU_GPU_TOOLKIT="$INSTALL_DIR"
 export PATH="$BIN_DIR:\$PATH"
+alias emu-gpu="$BIN_DIR/emu-gpu"
 alias swrender="$INSTALL_DIR/wrappers/swrender-full"
 alias llvmpipe="$INSTALL_DIR/wrappers/llvmpipe-glx"
 alias lavapipe="$INSTALL_DIR/wrappers/lavapipe-vk"
 alias game-mode="sudo $INSTALL_DIR/scripts/cpu-governor-game.sh"
 alias powersave-mode="sudo $INSTALL_DIR/scripts/cpu-governor-powersave.sh"
-# ========================
+# =============================
 EOF
         echo -e "${GREEN}[OK]${NC} Aliases adicionados ao .bashrc"
     fi
     
-    # Criar diretório para jogos
-    mkdir -p "$HOME/Games/exe-translated"
+    # Criar diretorio de jogos
+    mkdir -p "$HOME/Games/emu-gpu-library"
     
-    # Script de ativação do ambiente
+    # Script de ativacao
     cat > "$INSTALL_DIR/activate" << EOF
 #!/bin/bash
-# Ativa o ambiente EMU-GPU no shell atual
 export EMU_GPU_TOOLKIT="$INSTALL_DIR"
 export PATH="$BIN_DIR:\$PATH"
-export LIBGL_ALWAYS_SOFTWARE=1
-export GALLIUM_DRIVER=llvmpipe
-export LP_NUM_THREADS=0
-export VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/lvp_icd.x86_64.json
-[ ! -f "\$VK_ICD_FILENAMES" ] && export VK_ICD_FILENAMES=\$(find /usr -name "lvp_icd*.json" 2>/dev/null | head -1)
-export MESA_GL_VERSION_OVERRIDE=4.5
-echo "Ambiente EMU-GPU ativado!"
-echo "Para desativar, feche o terminal ou rode: deactivate-emu"
+echo "EMU-GPU Toolkit v2.0 ativado!"
+echo "Comandos: emu-gpu, swrender, llvmpipe, lavapipe, game-mode"
 EOF
     chmod +x "$INSTALL_DIR/activate"
     
-    cat > "$INSTALL_DIR/deactivate" << 'EOF'
-#!/bin/bash
-# Desativa o ambiente EMU-GPU
-unset EMU_GPU_TOOLKIT
-unset LIBGL_ALWAYS_SOFTWARE
-unset GALLIUM_DRIVER
-unset LP_NUM_THREADS
-unset VK_ICD_FILENAMES
-unset MESA_GL_VERSION_OVERRIDE
-echo "Ambiente EMU-GPU desativado."
-EOF
-    chmod +x "$INSTALL_DIR/deactivate"
-    
-    # Baixar ícone genérico
-    cp "$SCRIPT_DIR/docs/icon.png" "$INSTALL_DIR/icon.png" 2>/dev/null || \
-        touch "$INSTALL_DIR/icon.png"
+    # Update desktop database
+    update-desktop-database "$DESKTOP_DIR" 2>/dev/null || true
     
     echo -e "${GREEN}[OK]${NC} Ambiente configurado."
 }
 
-# ============================================================================
-# EXECUÇÃO PRINCIPAL
-# ============================================================================
+# =============================================================================
+# EXECUCAO PRINCIPAL
+# =============================================================================
 
 main() {
-    echo -e "${BOLD}Iniciando instalação...${NC}"
+    echo -e "${BOLD}Iniciando instalacao do EMU-GPU Toolkit v2.0...${NC}"
     echo ""
     
-    # Criar diretórios
-    mkdir -p "$INSTALL_DIR"/{scripts,wrappers,config,games,logs}
+    # Criar diretorios
+    mkdir -p "$INSTALL_DIR"/{scripts,wrappers,config,games,logs,translator}
     
     # Rodar etapas
-    install_base_packages
+    install_gtk4_deps
     install_mesa_llvmpipe
-    install_wine_dxvk
-    install_python_tool
+    install_translators
+    install_wine_libs
+    install_app
     configure_optimizations
     setup_environment
     
     # Resumo
-    echo -e "\n${BOLD}${GREEN}═══════════════════════════════════════════════════════════════${NC}"
-    echo -e "${BOLD}${GREEN}  ✓ INSTALAÇÃO CONCLUÍDA!${NC}"
-    echo -e "${BOLD}${GREEN}═══════════════════════════════════════════════════════════════${NC}"
     echo ""
-    echo -e "${BOLD}Comandos disponíveis:${NC}"
-    echo -e "  ${CYAN}emu-gpu${NC}                  - Ferramenta principal (CLI)"
-    echo -e "  ${CYAN}swrender <programa>${NC}      - Roda programa com GPU via CPU"
-    echo -e "  ${CYAN}llvmpipe <programa>${NC}      - Roda com OpenGL por software"
-    echo -e "  ${CYAN}lavapipe <programa>${NC}      - Roda com Vulkan por software"
-    echo -e "  ${CYAN}game-mode${NC}                - Ativa modo performance da CPU"
-    echo -e "  ${CYAN}powersave-mode${NC}           - Volta CPU para economia"
+    echo -e "${BOLD}${GREEN}════════════════════════════════════════════════════════════════${NC}"
+    echo -e "${BOLD}${GREEN}  ✓ INSTALACAO CONCLUIDA!${NC}"
+    echo -e "${BOLD}${GREEN}════════════════════════════════════════════════════════════════${NC}"
     echo ""
-    echo -e "${BOLD}Para ativar o ambiente:${NC}"
-    echo -e "  ${CYAN}source ~/.emu-gpu/activate${NC}"
+    echo -e "${BOLD}O que ha de novo na v2.0:${NC}"
+    echo -e "  ${CYAN}•${NC} Interface GTK4/libadwaita (estilo Steam/Lutris)"
+    echo -e "  ${CYN}•${NC} Traducao propria com DXVK, VKD3D, FAudio (codigo aberto)"
+    echo -e "  ${CYAN}•${NC} Nao depende do Wine como aplicativo"
+    echo -e "  ${CYAN}•${NC} Explorador de arquivos nativo (Nautilus)"
+    echo -e "  ${CYAN}•${NC} Ferramentas experimentais (FSR, Frame Generation)"
     echo ""
-    echo -e "${BOLD}Para usar agora:${NC}"
+    echo -e "${BOLD}Como usar:${NC}"
     echo -e "  1. ${CYAN}source ~/.bashrc${NC}  (ou abra um novo terminal)"
-    echo -e "  2. ${CYAN}emu-gpu --help${NC}   (ver todos os comandos)"
-    echo -e "  3. ${CYAN}emu-gpu run-cpu <seu-jogo.exe>${NC}"
+    echo -e "  2. ${CYAN}emu-gpu${NC}          (inicia a interface grafica)"
+    echo ""
+    echo -e "${BOLD}Atalhos criados:${NC}"
+    echo -e "  ${CYAN}emu-gpu${NC}              - Interface grafica"
+    echo -e "  ${CYAN}swrender <programa>${NC}  - Render completo por CPU"
+    echo -e "  ${CYAN}game-mode${NC}            - Ativa performance maxima CPU"
     echo ""
     echo -e "${YELLOW}AVISO:${NC} Reinicie o terminal ou rode 'source ~/.bashrc' para"
     echo -e "        usar os comandos imediatamente."
     echo ""
-    echo -e "${BOLD}${GREEN}═══════════════════════════════════════════════════════════════${NC}"
+    echo -e "${BOLD}${GREEN}════════════════════════════════════════════════════════════════${NC}"
 }
 
 # Verificar argumentos
 if [ "$1" == "--help" ] || [ "$1" == "-h" ]; then
-    echo "EMU-GPU Toolkit - Instalador"
+    echo "EMU-GPU Toolkit v2.0 - Instalador"
     echo ""
-    echo "Uso: ./install.sh [opções]"
+    echo "Uso: ./install.sh"
     echo ""
-    echo "Este script instala:"
-    echo "  - Drivers Mesa LLVMpipe (OpenGL por CPU)"
-    echo "  - Drivers Lavapipe (Vulkan por CPU)"
-    echo "  - Wine + DXVK + VKD3D (tradução .exe)"
-    echo "  - Ferramenta CLI emu-gpu"
-    echo "  - Otimizações de CPU para jogos"
+    echo "O EMU-GPU Toolkit v2.0 instala:"
+    echo "  - Interface GTK4/libadwaita (moderna, estilo Steam)"
+    echo "  - Drivers Mesa LLVMpipe/Lavapipe (GPU via CPU)"
+    echo "  - Modulos de traducao: DXVK, VKD3D-Proton, FAudio"
+    echo "  - Wine (apenas bibliotecas DLL, nao como app principal)"
+    echo "  - Otimizacoes de CPU para jogos"
     echo ""
-    echo "Requisitos: Ubuntu/Debian, CPU x86_64, 4GB+ RAM"
+    echo "Requisitos: Ubuntu/Debian, CPU x86_64, 4GB+ RAM, GTK4"
     exit 0
 fi
 
-# Confirmar instalação
-echo -e "${YELLOW}Este script irá:${NC}"
-echo "  1. Instalar pacotes do sistema (requer sudo)"
-echo "  2. Configurar renderização GPU via CPU"
-echo "  3. Instalar Wine + tradutores DirectX"
-echo "  4. Criar ferramenta emu-gpu"
+# Confirmar instalacao
+echo -e "${YELLOW}Este script ira:${NC}"
+echo "  1. Instalar GTK4, libadwaita, Nautilus, Vulkan"
+echo "  2. Configurar renderizacao GPU via CPU (LLVMpipe/Lavapipe)"
+echo "  3. Instalar modulos de traducao (DXVK, VKD3D, FAudio)"
+echo "  4. Instalar EMU-GPU Toolkit v2.0"
+echo "  5. Configurar otimizacoes de CPU"
 echo ""
 read -p "Continuar? [S/n]: " CONFIRM
 if [[ "$CONFIRM" =~ ^[Nn]$ ]]; then
-    echo "Instalação cancelada."
+    echo "Instalacao cancelada."
     exit 0
 fi
 
